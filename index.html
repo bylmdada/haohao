@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>好好民宿報價系統</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: white;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #4A3C31;
+    }
+    label {
+      display: block;
+      margin: 10px 0 5px;
+      font-weight: bold;
+    }
+    select, input {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #4A3C31;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background-color: #5A4C41;
+    }
+    #quoteResult {
+      margin-top: 20px;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+    }
+    .hidden {
+      display: none;
+    }
+    #dayType {
+      margin-top: 5px;
+      font-style: italic;
+      color: #555;
+    }
+    #copyMessage {
+      margin-top: 10px;
+      color: green;
+      font-style: italic;
+      text-align: center;
+    }
+    #nightlyDiscounts, #nightlyTypes {
+      margin-top: 10px;
+    }
+    #quoteTextArea {
+      width: 100%;
+      height: 100px;
+      margin-top: 10px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>好好民宿報價系統</h1>
+    
+    <label for="checkInDate">入住日期</label>
+    <input type="date" id="checkInDate" onchange="updateDayTypeAndRooms()">
+
+    <label for="checkOutDate">退房日期</label>
+    <input type="date" id="checkOutDate" onchange="updateDayTypeAndRooms()">
+
+    <label for="dayTypeMode">日期類型設定</label>
+    <select id="dayTypeMode" onchange="updateDayTypeAndRooms()">
+      <option value="auto">自動偵測</option>
+      <option value="manual">手動設定</option>
+    </select>
+
+    <div id="dayType"></div>
+    <div id="nightlyTypes"></div>
+
+    <label for="roomType">選擇房型</label>
+    <select id="roomType" onchange="updatePrice()"></select>
+
+    <label for="addBreakfast">加床數（每人每晚 1000元/床，上限4床）</label>
+    <input type="number" id="addBreakfast" value="0" min="0" max="4" onchange="updatePrice()">
+
+    <label for="totalDiscount">總價打折數</label>
+    <select id="totalDiscount" onchange="updatePrice()">
+      <option value="1.0">無折扣</option>
+      <option value="0.95">95折</option>
+      <option value="0.9">9折</option>
+      <option value="0.85">85折</option>
+      <option value="0.8">8折</option>
+    </select>
+
+    <div id="nightlyDiscounts"></div>
+
+    <button onclick="generateQuote()">生成報價單</button>
+
+    <div id="quoteResult" class="hidden">
+      <h2>報價單</h2>
+      <p><strong>入住日期：</strong><span id="quoteCheckInDate"></span></p>
+      <p><strong>退房日期：</strong><span id="quoteCheckOutDate"></span></p>
+      <p><strong>日期類型：</strong><span id="quoteDayType"></span></p>
+      <p><strong>房型：</strong><span id="quoteRoomType"></span></p>
+      <p><strong>入住人數：</strong><span id="quoteNumPeople"></span> 人</p>
+      <p><strong>入住天數：</strong><span id="quoteNumNights"></span> 晚</p>
+      <div id="nightlyBreakdown"></div>
+      <p><strong>加床費用：</strong>NT$ <span id="quoteAddBreakfast"></span></p>
+      <p><strong>總價折扣：</strong><span id="quoteTotalDiscount"></span></p>
+      <p><strong>每晚折扣：</strong><span id="quoteNightlyDiscounts"></span></p>
+      <p><strong>總金額：</strong>NT$ <span id="quoteTotal"></span></p>
+      <button onclick="exportToPDF()">匯出報價單為PDF</button>
+      <button onclick="copyQuote()">複製報價單內容</button>
+      <div id="copyMessage" class="hidden"></div>
+      <textarea id="quoteTextArea" readonly></textarea>
+    </div>
+  </div>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+    const basePrices = {
+      "六人微包棟": { weekday: 11800, people: 6 },
+      "八人小包棟": { weekday: 15800, people: 8 },
+      "十人中包棟": { weekday: 18800, people: 10 },
+      "十二人大包棟": { weekday: 22800, people: 12 }
+    };
+
+    const roomTypeDisplay = {
+      "六人微包棟": "六人微包棟(雙人房*1、四人房*1)",
+      "八人小包棟": "八人小包棟(雙人房*2、四人房*1)",
+      "十人中包棟": "十人中包棟(雙人房*1、四人房*2)",
+      "十二人大包棟": "十二人大包棟(雙人房*2、四人房*2)"
+    };
+
+    const imageBase64 = "data:image/png;base64,請將您的圖像轉為Base64編碼並替換此處";
+
+    const springFestivalPeriods = [
+      { start: new Date("2025-01-25"), end: new Date("2025-02-02") },
+      { start: new Date("2026-02-14"), end: new Date("2026-02-22") },
+      { start: new Date("2027-02-04"), end: new Date("2027-02-12") }
+    ];
+
+    const nationalHolidays = [
+      new Date("2025-01-01"),
+      new Date("2025-02-28"), new Date("2025-03-01"), new Date("2025-03-02"),
+      new Date("2025-04-03"), new Date("2025-04-04"), new Date("2025-04-05"), new Date("2025-04-06"),
+      new Date("2025-05-01"),
+      new Date("2025-05-30"), new Date("2025-05-31"), new Date("2025-06-01"),
+      new Date("2025-10-04"), new Date("2025-10-05"), new Date("2025-10-06"),
+      new Date("2025-10-10"), new Date("2025-10-11"), new Date("2025-10-12"),
+      new Date("2026-01-01"),
+      new Date("2026-02-27"), new Date("2026-02-28"), new Date("2026-03-01"),
+      new Date("2026-04-03"), new Date("2026-04-04"), new Date("2026-04-05"),
+      new Date("2026-05-01"),
+      new Date("2026-06-18"), new Date("2026-06-19"), new Date("2026-06-20"),
+      new Date("2026-09-23"), new Date("2026-09-24"), new Date("2026-09-25"),
+      new Date("2026-10-09"), new Date("2026-10-10"), new Date("2026-10-11"),
+      new Date("2027-01-01"),
+      new Date("2027-02-27"), new Date("2027-02-28"), new Date("2027-03-01"),
+      new Date("2027-04-03"), new Date("2027-04-04"), new Date("2027-04-05"),
+      new Date("2027-05-01"),
+      new Date("2027-06-07"), new Date("2027-06-08"), new Date("2027-06-09"),
+      new Date("2027-09-12"), new Date("2027-09-13"), new Date("2027-09-14"),
+      new Date("2027-10-09"), new Date("2027-10-10"), new Date("2027-10-11")
+    ];
+
+    function isSpringFestival(date) {
+      return springFestivalPeriods.some(period => 
+        date >= period.start && date <= period.end
+      );
+    }
+
+    function isNationalHoliday(date) {
+      return nationalHolidays.some(holiday => 
+        holiday.getFullYear() === date.getFullYear() &&
+        holiday.getMonth() === date.getMonth() &&
+        holiday.getDate() === date.getDate()
+      );
+    }
+
+    function isHoliday(date) {
+      const day = date.getDay();
+      return day === 5 || day === 6 || day === 0 || isSpringFestival(date) || isNationalHoliday(date);
+    }
+
+    function calculateNights() {
+      const checkIn = new Date(document.getElementById("checkInDate").value);
+      const checkOut = new Date(document.getElementById("checkOutDate").value);
+      if (checkIn && checkOut && checkOut > checkIn) {
+        const diffTime = Math.abs(checkOut - checkIn);
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      }
+      return 0;
+    }
+
+    function updateDayTypeAndRooms() {
+      const checkIn = new Date(document.getElementById("checkInDate").value);
+      const checkOut = document.getElementById("checkOutDate").value;
+      const dayTypeMode = document.getElementById("dayTypeMode").value;
+      const roomTypeSelect = document.getElementById("roomType");
+      const dayTypeDiv = document.getElementById("dayType");
+      const nightlyTypesDiv = document.getElementById("nightlyTypes");
+      const nightlyDiscountsDiv = document.getElementById("nightlyDiscounts");
+
+      if (!checkIn || !checkOut) {
+        dayTypeDiv.textContent = "";
+        roomTypeSelect.innerHTML = '<option value="">請選擇日期</option>';
+        nightlyTypesDiv.innerHTML = "";
+        nightlyDiscountsDiv.innerHTML = "";
+        return;
+      }
+
+      const numNights = calculateNights();
+      let currentDate = new Date(checkIn);
+      let nightCount = 0;
+      let dayTypeText = "";
+      let nightTypes = [];
+
+      nightlyTypesDiv.innerHTML = "";
+      if (dayTypeMode === "manual") {
+        for (let i = 1; i <= numNights; i++) {
+          const label = document.createElement("label");
+          label.setAttribute("for", `nightType${i}`);
+          label.textContent = `第${i}晚類型`;
+          const select = document.createElement("select");
+          select.setAttribute("id", `nightType${i}`);
+          select.setAttribute("onchange", "updatePrice()");
+          select.innerHTML = `
+            <option value="weekday">平日</option>
+            <option value="holiday">假日</option>
+            <option value="nationalHoliday">國定假日</option>
+          `;
+          nightlyTypesDiv.appendChild(label);
+          nightlyTypesDiv.appendChild(select);
+        }
+      }
+
+      while (currentDate < checkOut) {
+        nightCount++;
+        let isHolidayNight;
+        let nightType;
+
+        if (dayTypeMode === "auto") {
+          isHolidayNight = isHoliday(currentDate);
+          nightType = isHolidayNight ? (isNationalHoliday(currentDate) ? "nationalHoliday" : "holiday") : "weekday";
+        } else {
+          nightType = document.getElementById(`nightType${nightCount}`)?.value || "weekday";
+          isHolidayNight = nightType === "holiday" || nightType === "nationalHoliday";
+        }
+
+        nightTypes.push({ night: nightCount, type: nightType });
+        dayTypeText += `第${nightCount}晚：${nightType === "weekday" ? "平日" : nightType === "holiday" ? "假日" : "國定假日"}`;
+        if (nightCount < numNights) dayTypeText += "，";
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      dayTypeText += `，共${numNights}晚`;
+      dayTypeDiv.textContent = `日期類型：${dayTypeText}`;
+
+      const isHolidayFirstNight = nightTypes[0]?.type === "holiday" || nightTypes[0]?.type === "nationalHoliday";
+      roomTypeSelect.innerHTML = "";
+      if (isHolidayFirstNight) {
+        roomTypeSelect.innerHTML = '<option value="十二人大包棟">十二人大包棟(雙人房*2、四人房*2)</option>';
+      } else {
+        roomTypeSelect.innerHTML = `
+          <option value="六人微包棟">六人微包棟(雙人房*1、四人房*1)</option>
+          <option value="八人小包棟">八人小包棟(雙人房*2、四人房*1)</option>
+          <option value="十人中包棟">十人中包棟(雙人房*1、四人房*2)</option>
+          <option value="十二人大包棟">十二人大包棟(雙人房*2、四人房*2)</option>
+        `;
+      }
+
+      nightlyDiscountsDiv.innerHTML = "";
+      for (let i = 1; i <= numNights; i++) {
+        const label = document.createElement("label");
+        label.setAttribute("for", `discountNight${i}`);
+        label.textContent = `第${i}晚折扣`;
+        const select = document.createElement("select");
+        select.setAttribute("id", `discountNight${i}`);
+        select.setAttribute("onchange", "updatePrice()");
+        select.innerHTML = `
+          <option value="1.0">無折扣</option>
+          <option value="0.95">95折</option>
+          <option value="0.9">9折</option>
+          <option value="0.85">85折</option>
+          <option value="0.8">8折</option>
+          <option value="0.75">75折</option>
+          <option value="0.7">7折</option>
+        `;
+        nightlyDiscountsDiv.appendChild(label);
+        nightlyDiscountsDiv.appendChild(select);
+      }
+
+      updatePrice();
+    }
+
+    function calculatePricePerNight() {
+      const checkIn = new Date(document.getElementById("checkInDate").value);
+      const checkOut = new Date(document.getElementById("checkOutDate").value);
+      const dayTypeMode = document.getElementById("dayTypeMode").value;
+      const roomType = document.getElementById("roomType").value;
+      const addBreakfast = parseInt(document.getElementById("addBreakfast").value);
+      const totalDiscount = parseFloat(document.getElementById("totalDiscount").value);
+
+      if (!checkIn || !checkOut || checkOut <= checkIn || !roomType) return { total: 0, breakdown: [] };
+
+      let totalPrice = 0;
+      let currentDate = new Date(checkIn);
+      let nightCount = 0;
+      let breakdown = [];
+      let nightlyDiscounts = [];
+
+      while (currentDate < checkOut) {
+        nightCount++;
+        let price;
+        let nightType;
+        const dateStr = currentDate.toISOString().split('T')[0];
+        const nightDiscount = parseFloat(document.getElementById(`discountNight${nightCount}`)?.value || 1.0);
+
+        if (dayTypeMode === "auto") {
+          const isHolidayNight = isHoliday(currentDate);
+          nightType = isHolidayNight ? (isNationalHoliday(currentDate) ? "nationalHoliday" : "holiday") : "weekday";
+        } else {
+          nightType = document.getElementById(`nightType${nightCount}`)?.value || "weekday";
+        }
+
+        if (nightType === "nationalHoliday" && isSpringFestival(currentDate)) {
+          price = 39800;
+        } else if (nightType === "holiday" || nightType === "nationalHoliday") {
+          price = 29800;
+        } else {
+          price = basePrices[roomType].weekday;
+        }
+
+        price = price * nightDiscount;
+        nightlyDiscounts.push({ night: nightCount, discount: nightDiscount });
+
+        totalPrice += price;
+        breakdown.push({ 
+          date: dateStr, 
+          price: price, 
+          type: nightType === "weekday" ? "平日" : nightType === "holiday" ? "假日" : "國定假日", 
+          night: nightCount, 
+          discount: nightDiscount 
+        });
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      const numNights = calculateNights();
+      const breakfastCost = addBreakfast * 1000 * numNights;
+
+      const finalTotal = (totalPrice + breakfastCost) * totalDiscount;
+      return { total: finalTotal, breakdown: breakdown, nightlyDiscounts: nightlyDiscounts };
+    }
+
+    function updatePrice() {
+      const result = calculatePricePerNight();
+      return result.total;
+    }
+
+    function generateQuote() {
+      const checkInDate = document.getElementById("checkInDate").value;
+      const checkOutDate = document.getElementById("checkOutDate").value;
+      const roomType = document.getElementById("roomType").value;
+      const numNights = calculateNights();
+      const addBreakfast = document.getElementById("addBreakfast").value;
+      const totalDiscount = parseFloat(document.getElementById("totalDiscount").value);
+      const { total, breakdown, nightlyDiscounts } = calculatePricePerNight();
+
+      let dayTypeText = "";
+      breakdown.forEach(item => {
+        dayTypeText += `第${item.night}晚：${item.type}`;
+        if (item.night < numNights) dayTypeText += "，";
+      });
+
+      let nightlyDiscountText = "";
+      nightlyDiscounts.forEach(item => {
+        let discountDisplay;
+        if (item.discount === 0.9) {
+          discountDisplay = "9折";
+        } else if (item.discount === 0.8) {
+          discountDisplay = "8折";
+        } else if (item.discount === 0.7) {
+          discountDisplay = "7折";
+        } else if (item.discount === 1.0) {
+          discountDisplay = "無折扣";
+        } else {
+          discountDisplay = `${(item.discount * 100)}折`;
+        }
+        nightlyDiscountText += `第${item.night}晚：${discountDisplay}`;
+        if (item.night < numNights) nightlyDiscountText += "，";
+      });
+
+      const numPeople = basePrices[roomType]?.people || 0;
+      const totalDiscountText = totalDiscount === 1.0 ? "無折扣" : totalDiscount === 0.9 ? "9折" : totalDiscount === 0.8 ? "8折" : `${(totalDiscount * 100)}折`;
+
+      let breakdownHtml = "<p><strong>每晚價格明細：</strong></p><ul>";
+      breakdown.forEach(item => {
+        let discountDisplay;
+        if (item.discount === 0.9) {
+          discountDisplay = "9折";
+        } else if (item.discount === 0.8) {
+          discountDisplay = "8折";
+        } else if (item.discount === 0.7) {
+          discountDisplay = "7折";
+        } else if (item.discount === 1.0) {
+          discountDisplay = "";
+        } else {
+          discountDisplay = `${(item.discount * 100)}折`;
+        }
+        const discountText = discountDisplay ? `（${discountDisplay}）` : "";
+        breakdownHtml += `<li>第${item.night}晚 ${item.date} (${item.type})：NT$ ${Math.round(item.price).toLocaleString()} ${discountText}</li>`;
+      });
+      breakdownHtml += "</ul>";
+      document.getElementById("nightlyBreakdown").innerHTML = breakdownHtml;
+
+      document.getElementById("quoteCheckInDate").textContent = checkInDate || "未選擇";
+      document.getElementById("quoteCheckOutDate").textContent = checkOutDate || "未選擇";
+      document.getElementById("quoteDayType").textContent = dayTypeText;
+      document.getElementById("quoteRoomType").textContent = roomTypeDisplay[roomType] || roomType;
+      document.getElementById("quoteNumPeople").textContent = numPeople;
+      document.getElementById("quoteNumNights").textContent = numNights;
+      document.getElementById("quoteAddBreakfast").textContent = addBreakfast * 1000 * numNights;
+      document.getElementById("quoteTotalDiscount").textContent = totalDiscountText;
+      document.getElementById("quoteNightlyDiscounts").textContent = nightlyDiscountText;
+      document.getElementById("quoteTotal").textContent = Math.round(total).toLocaleString();
+
+      document.getElementById("quoteResult").classList.remove("hidden");
+      document.getElementById("copyMessage").classList.add("hidden");
+      document.getElementById("quoteTextArea").style.display = "none";
+    }
+
+    function exportToPDF() {
+      const doc = new jsPDF();
+      doc.setFont("helvetica");
+      doc.setFontSize(12);
+
+      let y = 20;
+      const lineHeight = 10;
+
+      doc.text("好好民宿報價單", 105, y, { align: "center" });
+      y += lineHeight;
+
+      doc.text(`入住日期：${document.getElementById("quoteCheckInDate").textContent}`, 20, y);
+      y += lineHeight;
+      doc.text(`退房日期：${document.getElementById("quoteCheckOutDate").textContent}`, 20, y);
+      y += lineHeight;
+      doc.text(`日期類型：${document.getElementById("quoteDayType").textContent}`, 20, y);
+      y += lineHeight;
+      doc.text(`房型：${document.getElementById("quoteRoomType").textContent}`, 20, y);
+      y += lineHeight;
+      doc.text(`入住人數：${document.getElementById("quoteNumPeople").textContent} 人`, 20, y);
+      y += lineHeight;
+      doc.text(`入住天數：${document.getElementById("quoteNumNights").textContent} 晚`, 20, y);
+      y += lineHeight;
+
+      doc.text("每晚價格明細：", 20, y);
+      y += lineHeight;
+      const breakdownItems = Array.from(document.querySelectorAll("#nightlyBreakdown ul li"));
+      breakdownItems.forEach(item => {
+        doc.text(item.textContent, 30, y);
+        y += lineHeight;
+      });
+
+      doc.text(`加床費用：NT$ ${document.getElementById("quoteAddBreakfast").textContent}`, 20, y);
+      y += lineHeight;
+      doc.text(`總價折扣：${document.getElementById("quoteTotalDiscount").textContent}`, 20, y);
+      y += lineHeight;
+      doc.text(`每晚折扣：${document.getElementById("quoteNightlyDiscounts").textContent}`, 20, y);
+      y += lineHeight;
+      doc.text(`總金額：NT$ ${document.getElementById("quoteTotal").textContent}`, 20, y);
+      y += lineHeight * 2;
+
+      if (imageBase64 !== "data:image/png;base64,請將您的圖像轉為Base64編碼並替換此處") {
+        try {
+          doc.addImage(imageBase64, 'PNG', 20, y, 170, 100);
+          y += 110;
+          doc.addImage(imageBase64, 'PNG', 20, y, 170, 100);
+        } catch (e) {
+          console.error("圖像嵌入失敗，請檢查 Base64 編碼是否正確", e);
+        }
+      } else {
+        doc.text("圖像未提供，請嵌入圖像的 Base64 編碼", 20, y);
+      }
+
+      doc.save("好好民宿報價單.pdf");
+    }
+
+    function copyQuote() {
+      const quoteText = `
+報價單
+入住日期：${document.getElementById("quoteCheckInDate").textContent}
+退房日期：${document.getElementById("quoteCheckOutDate").textContent}
+日期類型：${document.getElementById("quoteDayType").textContent}
+房型：${document.getElementById("quoteRoomType").textContent}
+入住人數：${document.getElementById("quoteNumPeople").textContent} 人
+入住天數：${document.getElementById("quoteNumNights").textContent} 晚
+每晚價格明細：
+${Array.from(document.querySelectorAll("#nightlyBreakdown ul li")).map(item => item.textContent).join("\n")}
+加床費用：NT$ ${document.getElementById("quoteAddBreakfast").textContent}
+總價折扣：${document.getElementById("quoteTotalDiscount").textContent}
+每晚折扣：${document.getElementById("quoteNightlyDiscounts").textContent}
+總金額：NT$ ${document.getElementById("quoteTotal").textContent}
+      `.trim();
+
+      const copyMessage = document.getElementById("copyMessage");
+      const textArea = document.getElementById("quoteTextArea");
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(quoteText).then(() => {
+          copyMessage.textContent = "報價單內容已複製！";
+          copyMessage.style.color = "green";
+          copyMessage.classList.remove("hidden");
+          textArea.style.display = "none";
+          setTimeout(() => copyMessage.classList.add("hidden"), 2000);
+        }).catch(err => {
+          textArea.value = quoteText;
+          textArea.style.display = "block";
+          copyMessage.textContent = "複製失敗，請從下方選取並手動複製！";
+          copyMessage.style.color = "red";
+          copyMessage.classList.remove("hidden");
+          setTimeout(() => copyMessage.classList.add("hidden"), 3000);
+        });
+      } else {
+        textArea.value = quoteText;
+        textArea.style.display = "block";
+        copyMessage.textContent = "您的瀏覽器不支持自動複製，請從下方選取並手動複製！";
+        copyMessage.style.color = "red";
+        copyMessage.classList.remove("hidden");
+        setTimeout(() => copyMessage.classList.add("hidden"), 3000);
+      }
+    }
+  </script>
+</body>
+</html>
