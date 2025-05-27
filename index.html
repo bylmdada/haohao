@@ -45,9 +45,8 @@
       font-size: 0.9em;
       box-sizing: border-box;
     }
-    /* 縮小入住日期和退房日期欄位的寬度 */
     input[type="date"] {
-      width: 200px; /* 電腦版固定寬度，避免與標誌重疊 */
+      width: 200px;
     }
     .discount-container, .adjustment-container {
       margin-bottom: 8px;
@@ -151,7 +150,7 @@
         font-size: 0.85em;
       }
       input[type="date"] {
-        width: 150px; /* 手機版縮小寬度，適配小螢幕 */
+        width: 150px;
       }
       .integer-discount-container select, .integer-adjustment-container select {
         padding: 8px;
@@ -182,7 +181,7 @@
     <h1>好好報價</h1>
     
     <label for="checkInDate">入住日期</label>
-    <input type="date" id="checkInDate" onchange="updateCheckOutDate(); updateDayTypeAndRooms()">
+    <input type="date" id="checkInDate" onchange="updateCheckOutDate();" oninput="updateCheckOutDate();">
 
     <label for="checkOutDate">退房日期</label>
     <input type="date" id="checkOutDate" onchange="updateDayTypeAndRooms()">
@@ -296,19 +295,22 @@
       "十人中包棟": "十人中包棟(雙人房*1、四人房*2)",
       "十二人大包棟": "十二人大包棟(雙人房*2、四人房*2)"
     };
-     /* 春節期間 */
+
+    /* 春節期間 */
     const springFestivalPeriods = [
       { start: new Date("2025-01-25"), end: new Date("2025-02-02") },
       { start: new Date("2026-02-14"), end: new Date("2026-02-22") },
       { start: new Date("2027-02-04"), end: new Date("2027-02-12") }
     ];
-     /* 除夕至初三 */
+
+    /* 除夕至初三 */
     const springFestivalEveToThirdDay = [
       { start: new Date("2025-01-28"), end: new Date("2025-01-31") },
       { start: new Date("2026-02-16"), end: new Date("2026-02-19") },
       { start: new Date("2027-02-05"), end: new Date("2027-02-08") }
     ];
-     /* 國定假日 */
+
+    /* 國定假日 */
     const nationalHolidays = [
       new Date("2025-01-01"),
       new Date("2025-02-28"), new Date("2025-03-01"), new Date("2025-03-02"),
@@ -378,13 +380,30 @@
 
     function updateCheckOutDate() {
       const checkInDate = document.getElementById("checkInDate").value;
-      const checkOutDate = document.getElementById("checkOutDate").value;
-      if (checkInDate && !checkOutDate) {
+      const checkOutInput = document.getElementById("checkOutDate");
+
+      if (!checkInDate) {
+        console.log("未選擇入住日期");
+        return;
+      }
+
+      try {
         const checkIn = new Date(checkInDate);
+        if (isNaN(checkIn.getTime())) {
+          console.error("入住日期無效:", checkInDate);
+          return;
+        }
+
         const nextDay = new Date(checkIn);
         nextDay.setDate(checkIn.getDate() + 1);
         const formattedNextDay = nextDay.toISOString().split('T')[0];
-        document.getElementById("checkOutDate").value = formattedNextDay;
+        
+        checkOutInput.value = formattedNextDay;
+        console.log("退房日期已更新為:", formattedNextDay);
+
+        updateDayTypeAndRooms();
+      } catch (error) {
+        console.error("更新退房日期時發生錯誤:", error);
       }
     }
 
@@ -658,7 +677,7 @@
 
         const baiSelect = document.createElement("select");
         baiSelect.setAttribute("id", "springFestivalAdjustment_bai");
-        baiSelect.setAttribute("onchange", "updatePrice()");
+        qianSelect.setAttribute("onchange", "updatePrice()");
         baiSelect.innerHTML = Array.from({ length: 10 }, (_, idx) => `<option value="${idx}">${idx}百</option>`).join('');
         container.appendChild(baiSelect);
 
@@ -987,8 +1006,20 @@
       }
     }
 
-    document.getElementById("checkInDate").setAttribute("min", new Date().toISOString().split('T')[0]);
-    document.getElementById("checkOutDate").setAttribute("min", new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0]);
+    document.addEventListener("DOMContentLoaded", function() {
+      const checkInInput = document.getElementById("checkInDate");
+      const today = new Date().toISOString().split('T')[0];
+      checkInInput.setAttribute("min", today);
+
+      const checkOutInput = document.getElementById("checkOutDate");
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      checkOutInput.setAttribute("min", tomorrow.toISOString().split('T')[0]);
+
+      if (checkInInput.value) {
+        updateCheckOutDate();
+      }
+    });
   </script>
 </body>
 </html>
