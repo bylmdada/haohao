@@ -45,6 +45,10 @@
       font-size: 0.9em;
       box-sizing: border-box;
     }
+    /* 縮小入住日期和退房日期欄位的寬度 */
+    input[type="date"] {
+      width: 200px; /* 電腦版固定寬度，避免與標誌重疊 */
+    }
     .discount-container, .adjustment-container {
       margin-bottom: 8px;
     }
@@ -124,8 +128,8 @@
     }
     .img-top-right {
       position: absolute;
-      top: 10px;
-      right: 10px;
+      top: 5px;
+      right: 5px;
       width: 200px;
     }
     @media (max-width: 600px) {
@@ -146,6 +150,9 @@
         padding: 8px;
         font-size: 0.85em;
       }
+      input[type="date"] {
+        width: 150px; /* 手機版縮小寬度，適配小螢幕 */
+      }
       .integer-discount-container select, .integer-adjustment-container select {
         padding: 8px;
         font-size: 0.85em;
@@ -163,6 +170,8 @@
       }
       .img-top-right {
         width: 75px;
+        top: 5px;
+        right: 5px;
       }
     }
   </style>
@@ -256,7 +265,6 @@
       <p><strong>退房日期：</strong><span id="quoteCheckOutDate"></span></p>
       <p><strong>日期類型：</strong><span id="quoteDayType"></span></p>
       <p><strong>房型：</strong><span id="quoteRoomType"></span></p>
-      <p><strong>入住人數：</strong><span id="quoteNumPeople"></span> 人</p>
       <p><strong>入住天數：</strong><span id="quoteNumNights"></span> 晚</p>
       <p id="quoteSummerPeakAdjustmentRow" class="hidden"><strong>暑假調漲：</strong><span id="quoteSummerPeakAdjustment"></span></p>
       <p id="quoteSpringFestivalAdjustmentRow" class="hidden"><strong>春節調漲：</strong><span id="quoteSpringFestivalAdjustment"></span></p>
@@ -845,7 +853,6 @@
         if (item.night < numNights) dayTypeText += "，";
       });
 
-      const numPeople = basePrices[roomType]?.people || 0;
       const totalDiscountText = totalDiscount === 1.0 ? "無折扣" : totalDiscount === 0.9 ? "9折" : totalDiscount === 0.8 ? "8折" : `${(totalDiscount * 100)}折`;
       const summerPeakAdjustmentText = applySummerPeakAdjustmentAmount ? `NT$ ${summerPeakAdjustmentAmount.toLocaleString()} (加價金額)` : summerPeakAdjustment === 1.0 ? "無調漲" : `調漲${Math.round((summerPeakAdjustment - 1) * 100)}%`;
       const springFestivalAdjustmentText = applySpringFestivalAdjustmentAmount ? `NT$ ${springFestivalAdjustmentAmount.toLocaleString()} (加價金額)` : springFestivalAdjustment === 1.0 ? "無調漲" : `調漲${Math.round((springFestivalAdjustment - 1) * 100)}%`;
@@ -854,7 +861,6 @@
       document.getElementById("quoteCheckOutDate").textContent = checkOutDate || "未選擇";
       document.getElementById("quoteDayType").textContent = dayTypeText;
       document.getElementById("quoteRoomType").textContent = roomTypeDisplay[roomType] || roomType;
-      document.getElementById("quoteNumPeople").textContent = numPeople;
       document.getElementById("quoteNumNights").textContent = numNights;
 
       if (applySummerPeakAdjustmentAmount || summerPeakAdjustment !== 1.0) {
@@ -932,7 +938,6 @@
 退房日期：${document.getElementById("quoteCheckOutDate").textContent}
 日期類型：${document.getElementById("quoteDayType").textContent}
 房型：${document.getElementById("quoteRoomType").textContent}
-入住人數：${document.getElementById("quoteNumPeople").textContent} 人
 入住天數：${document.getElementById("quoteNumNights").textContent} 晚
       `.trim();
 
