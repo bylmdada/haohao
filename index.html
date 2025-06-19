@@ -470,15 +470,13 @@
 
       while (currentDate < checkOut) {
         nightCount++;
-        let isHolidayNight;
         let nightType;
 
         if (dayTypeMode === "auto") {
-          isHolidayNight = isHoliday(currentDate);
+          const isHolidayNight = isHoliday(currentDate);
           nightType = isHolidayNight ? (isNationalHoliday(currentDate) ? "nationalHoliday" : "holiday") : "weekday";
         } else {
           nightType = document.getElementById(`nightType${nightCount}`)?.value || "weekday";
-          isHolidayNight = nightType === "holiday" || nightType === "nationalHoliday";
         }
 
         nightTypes.push({ night: nightCount, type: nightType });
@@ -490,22 +488,15 @@
       dayTypeText += `，共${numNights}晚`;
       dayTypeDiv.textContent = `日期類型：${dayTypeText}`;
 
-      const isHolidayFirstNight = nightTypes[0]?.type === "holiday" || nightTypes[0]?.type === "nationalHoliday";
       const currentRoomType = roomTypeSelect.value;
-      roomTypeSelect.innerHTML = "";
-      if (isHolidayFirstNight) {
-        roomTypeSelect.innerHTML = '<option value="十二人大包棟">十二人大包棟(雙人房*2、四人房*2)</option>';
-        roomTypeSelect.value = "十二人大包棟";
-      } else {
-        roomTypeSelect.innerHTML = `
-          <option value="四人微包棟">四人微包棟(雙人房*2 或 四人房*1)</option>
-          <option value="六人微包棟">六人微包棟(雙人房*1、四人房*1)</option>
-          <option value="八人小包棟">八人小包棟(雙人房*2、四人房*1 或 四人房*2)</option>
-          <option value="十人中包棟">十人中包棟(雙人房*1、四人房*2)</option>
-          <option value="十二人大包棟">十二人大包棟(雙人房*2、四人房*2)</option>
-        `;
-        roomTypeSelect.value = currentRoomType && basePrices[currentRoomType] ? currentRoomType : "四人微包棟";
-      }
+      roomTypeSelect.innerHTML = `
+        <option value="四人微包棟">四人微包棟(雙人房*2 或 四人房*1)</option>
+        <option value="六人微包棟">六人微包棟(雙人房*1、四人房*1)</option>
+        <option value="八人小包棟">八人小包棟(雙人房*2、四人房*1 或 四人房*2)</option>
+        <option value="十人中包棟">十人中包棟(雙人房*1、四人房*2)</option>
+        <option value="十二人大包棟">十二人大包棟(雙人房*2、四人房*2)</option>
+      `;
+      roomTypeSelect.value = currentRoomType && basePrices[currentRoomType] ? currentRoomType : "四人微包棟";
 
       nightlyDiscountsDiv.innerHTML = "";
       const discountsFragment = document.createDocumentFragment();
@@ -678,7 +669,7 @@
 
         const baiSelect = document.createElement("select");
         baiSelect.setAttribute("id", "springFestivalAdjustment_bai");
-        qianSelect.setAttribute("onchange", "updatePrice()");
+        baiSelect.setAttribute("onchange", "updatePrice()");
         baiSelect.innerHTML = Array.from({ length: 10 }, (_, idx) => `<option value="${idx}">${idx}百</option>`).join('');
         container.appendChild(baiSelect);
 
@@ -772,10 +763,7 @@
         if (useIntegerMode) {
           price = integerPrice;
         } else {
-          if (isSpringFestivalEveToThird) {
-            basePrice = 36800;
-            price = applySpringFestivalAdjustmentAmount ? basePrice + springFestivalAdjustmentAmount : basePrice * springFestivalAdjustment;
-          } else if (nightType === "nationalHoliday" && isSpringFestival(currentDate)) {
+          if (isSpringFestivalEveToThird || (nightType === "nationalHoliday" && isSpringFestival(currentDate))) {
             basePrice = 36800;
             price = applySpringFestivalAdjustmentAmount ? basePrice + springFestivalAdjustmentAmount : basePrice * springFestivalAdjustment;
           } else if (nightType === "holiday" || nightType === "nationalHoliday") {
