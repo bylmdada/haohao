@@ -4,10 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>好好報價</title>
-  <link rel="icon" type="image/png" href="https://i.imgur.com/WrZbkYw.png">
+  <link rel="icon" type="image/png" href="https://imgur.com/925OqUB.png">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Noto Sans TC', sans-serif;
       margin: 0;
       padding: 10px;
       background-color: #f5f5f5;
@@ -46,7 +47,8 @@
       box-sizing: border-box;
     }
     input[type="date"] {
-      width: 200px;
+      width: 100%;
+      max-width: 200px;
     }
     .discount-container, .adjustment-container {
       margin-bottom: 8px;
@@ -70,16 +72,25 @@
       font-size: 1em;
       margin-top: 10px;
       touch-action: manipulation;
+      transition: background-color 0.2s ease;
     }
     button:hover {
       background-color: #5A4C41;
     }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
     .toggle-button {
       width: auto;
-      padding: 5px 10px;
+      min-width: 44px;
+      min-height: 44px;
+      padding: 8px 14px;
       font-size: 0.9em;
       margin-left: 10px;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
     #quoteResult {
       margin-top: 15px;
@@ -89,19 +100,52 @@
       background-color: #f9f9f9;
       font-size: 0.9em;
     }
+    .quote-summary {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 4px 12px;
+      margin-bottom: 10px;
+    }
+    .quote-summary dt {
+      font-weight: 500;
+      color: #4A3C31;
+      white-space: nowrap;
+    }
+    .quote-summary dd {
+      margin: 0;
+    }
+    .quote-total {
+      text-align: center;
+      padding: 12px;
+      margin-top: 10px;
+      background: #4A3C31;
+      color: white;
+      border-radius: 5px;
+      font-size: 1.1em;
+    }
+    .quote-total .amount {
+      font-size: 1.4em;
+      font-weight: 700;
+    }
+    .highlight-flash {
+      animation: flash 0.6s ease;
+    }
+    @keyframes flash {
+      0%, 100% { background-color: #4A3C31; }
+      30% { background-color: #7A6C51; }
+    }
     .hidden {
       display: none;
     }
     #dayType {
       margin-top: 5px;
       font-style: italic;
-      color: #555;
+      color: #4A4A4A;
       font-size: 0.85em;
       overflow-wrap: break-word;
     }
     #copyMessage {
       margin-top: 8px;
-      color: green;
       font-style: italic;
       text-align: center;
       font-size: 0.85em;
@@ -131,6 +175,48 @@
       right: 5px;
       width: 200px;
     }
+    .form-error {
+      color: #c0392b;
+      font-size: 0.82em;
+      margin: -4px 0 8px;
+      display: none;
+    }
+    .popular-badge {
+      display: inline-block;
+      background: #CA8A04;
+      color: white;
+      font-size: 0.7em;
+      font-weight: 500;
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+    .price-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85em;
+      margin-top: 8px;
+    }
+    .price-table th, .price-table td {
+      border: 1px solid #ddd;
+      padding: 6px 8px;
+      text-align: center;
+    }
+    .price-table th {
+      background: #4A3C31;
+      color: white;
+      font-weight: 500;
+    }
+    .price-table tr:nth-child(even) {
+      background: #faf9f7;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
     @media (max-width: 600px) {
       body {
         padding: 5px;
@@ -148,9 +234,6 @@
       select, input {
         padding: 8px;
         font-size: 0.85em;
-      }
-      input[type="date"] {
-        width: 150px;
       }
       .integer-discount-container select, .integer-adjustment-container select {
         padding: 8px;
@@ -172,19 +255,29 @@
         top: 5px;
         right: 5px;
       }
+      .quote-summary {
+        grid-template-columns: 1fr;
+        gap: 2px;
+      }
+      .quote-summary dt {
+        margin-top: 4px;
+      }
     }
   </style>
 </head>
 <body>
   <img src="https://i.imgur.com/925OqUB.jpg" class="img-top-right" alt="民宿標誌">
+  <div id="holidayLoadStatus" style="font-size:0.75em;color:#999;text-align:right;padding:2px 8px 0;">假日資料載入中...</div>
   <div class="container">
     <h1>好好報價</h1>
     
     <label for="checkInDate">入住日期</label>
     <input type="date" id="checkInDate" onchange="updateCheckOutDate();" oninput="updateCheckOutDate();">
+    <div id="checkInError" class="form-error" role="alert"></div>
 
     <label for="checkOutDate">退房日期</label>
     <input type="date" id="checkOutDate" onchange="updateDayTypeAndRooms()">
+    <div id="checkOutError" class="form-error" role="alert"></div>
 
     <label for="dayTypeMode">日期類型設定</label>
     <select id="dayTypeMode" onchange="updateDayTypeAndRooms()">
@@ -198,8 +291,8 @@
     <label for="roomType">選擇房型</label>
     <select id="roomType" onchange="updatePrice()"></select>
 
-    <label for="addBreakfast">加床數（每人每晚 1000元/床，上限4床）</label>
-    <select id="addBreakfast" onchange="updatePrice()">
+    <label for="addBed">加床數（每人每晚 1000元/床，上限4床）</label>
+    <select id="addBed" onchange="updatePrice()">
       <option value="0">0 床</option>
       <option value="1">1 床</option>
       <option value="2">2 床</option>
@@ -208,8 +301,25 @@
     </select>
 
     <div class="adjustment-container">
+      <label style="display: inline;">清潔費設定（可選）
+        <button class="toggle-button" aria-expanded="false" aria-controls="cleaningFeeSection" onclick="toggleSection('cleaningFeeSection', this)">+</button>
+      </label>
+      <div id="cleaningFeeSection" class="hidden">
+        <select id="cleaningFee" onchange="updatePrice()">
+          <option value="0">不收清潔費</option>
+          <option value="500">NT$ 500</option>
+          <option value="1000">NT$ 1,000</option>
+          <option value="1500">NT$ 1,500</option>
+          <option value="2000">NT$ 2,000</option>
+          <option value="2500">NT$ 2,500</option>
+          <option value="3000">NT$ 3,000</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="adjustment-container">
       <label style="display: inline;">暑假調漲模式（7月1日-8月31日）
-        <button class="toggle-button" onclick="toggleSection('summerPeakAdjustmentSection')">+</button>
+        <button class="toggle-button" aria-expanded="false" aria-controls="summerPeakAdjustmentSection" onclick="toggleSection('summerPeakAdjustmentSection', this)">+</button>
       </label>
       <div id="summerPeakAdjustmentSection" class="hidden">
         <select id="summerPeakAdjustmentMode" onchange="updateSummerPeakAdjustmentInput()">
@@ -222,7 +332,7 @@
 
     <div class="adjustment-container">
       <label style="display: inline;">春節調漲模式（除夕至初三）
-        <button class="toggle-button" onclick="toggleSection('springFestivalAdjustmentSection')">+</button>
+        <button class="toggle-button" aria-expanded="false" aria-controls="springFestivalAdjustmentSection" onclick="toggleSection('springFestivalAdjustmentSection', this)">+</button>
       </label>
       <div id="springFestivalAdjustmentSection" class="hidden">
         <select id="springFestivalAdjustmentMode" onchange="updateSpringFestivalAdjustmentInput()">
@@ -235,7 +345,7 @@
 
     <div class="discount-container">
       <label style="display: inline;">總價打折數
-        <button class="toggle-button" onclick="toggleSection('totalDiscountSection')">+</button>
+        <button class="toggle-button" aria-expanded="false" aria-controls="totalDiscountSection" onclick="toggleSection('totalDiscountSection', this)">+</button>
       </label>
       <div id="totalDiscountSection" class="hidden">
         <select id="totalDiscount" onchange="updatePrice()">
@@ -257,22 +367,52 @@
 
     <div id="nightlyDiscounts"></div>
 
-    <button onclick="generateQuote()">生成報價單</button>
+    <button id="generateBtn" onclick="generateQuote()">生成報價單</button>
+    <div id="generateError" class="form-error" role="alert"></div>
+
+    <div class="adjustment-container">
+      <label style="display: inline;">價格對照表
+        <button class="toggle-button" aria-expanded="false" aria-controls="priceTableSection" onclick="toggleSection('priceTableSection', this)">+</button>
+      </label>
+      <div id="priceTableSection" class="hidden">
+        <table class="price-table">
+          <thead>
+            <tr><th>房型</th><th>平日</th><th>假日</th><th>春節</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>四人微包棟</td><td>11,800</td><td>27,800</td><td>36,800</td></tr>
+            <tr><td>六人微包棟</td><td>13,800</td><td>27,800</td><td>36,800</td></tr>
+            <tr><td>八人小包棟</td><td>16,800</td><td>27,800</td><td>36,800</td></tr>
+            <tr><td>十人中包棟</td><td>18,800</td><td>27,800</td><td>36,800</td></tr>
+            <tr><td>十二人大包棟</td><td>21,800</td><td>27,800</td><td>36,800</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:0.8em;color:#6b6b6b;margin-top:4px;">加床：NT$ 1,000/人/晚（上限4床）</p>
+      </div>
+    </div>
 
     <div id="quoteResult" class="hidden">
-      <p><strong>入住日期：</strong><span id="quoteCheckInDate"></span></p>
-      <p><strong>退房日期：</strong><span id="quoteCheckOutDate"></span></p>
-      <p><strong>日期類型：</strong><span id="quoteDayType"></span></p>
-      <p><strong>房型：</strong><span id="quoteRoomType"></span></p>
-      <p><strong>入住天數：</strong><span id="quoteNumNights"></span> 晚</p>
-      <p id="quoteSummerPeakAdjustmentRow" class="hidden"><strong>暑假調漲：</strong><span id="quoteSummerPeakAdjustment"></span></p>
-      <p id="quoteSpringFestivalAdjustmentRow" class="hidden"><strong>春節調漲：</strong><span id="quoteSpringFestivalAdjustment"></span></p>
+      <dl class="quote-summary">
+        <dt>入住日期</dt><dd><span id="quoteCheckInDate"></span></dd>
+        <dt>退房日期</dt><dd><span id="quoteCheckOutDate"></span></dd>
+        <dt>日期類型</dt><dd><span id="quoteDayType"></span></dd>
+        <dt>房型</dt><dd><span id="quoteRoomType"></span></dd>
+        <dt>入住天數</dt><dd><span id="quoteNumNights"></span> 晚</dd>
+        <dt id="quoteSummerPeakAdjustmentRow" class="hidden">暑假調漲</dt><dd id="quoteSummerPeakAdjustmentVal" class="hidden"><span id="quoteSummerPeakAdjustment"></span></dd>
+        <dt id="quoteSpringFestivalAdjustmentRow" class="hidden">春節調漲</dt><dd id="quoteSpringFestivalAdjustmentVal" class="hidden"><span id="quoteSpringFestivalAdjustment"></span></dd>
+      </dl>
       <div id="nightlyBreakdown"></div>
-      <p id="quoteAddBreakfastRow" class="hidden"><strong>加床費用：</strong>NT$ <span id="quoteAddBreakfast"></span></p>
-      <p id="quoteTotalDiscountRow" class="hidden"><strong>總價折扣：</strong><span id="quoteTotalDiscount"></span></p>
-      <p><strong>總金額：</strong>NT$ <span id="quoteTotal"></span>；訂金(50%)：NT$ <span id="quoteDeposit"></span></p>
+      <dl class="quote-summary">
+        <dt id="quoteAddBedRow" class="hidden">加床費用</dt><dd id="quoteAddBedVal" class="hidden">NT$ <span id="quoteAddBed"></span></dd>
+        <dt id="quoteCleaningFeeRow" class="hidden">清潔費</dt><dd id="quoteCleaningFeeVal" class="hidden">NT$ <span id="quoteCleaningFee"></span></dd>
+        <dt id="quoteTotalDiscountRow" class="hidden">總價折扣</dt><dd id="quoteTotalDiscountVal" class="hidden"><span id="quoteTotalDiscount"></span></dd>
+      </dl>
+      <div class="quote-total" id="quoteTotalBox">
+        總金額 NT$ <span class="amount" id="quoteTotal"></span><br>
+        <span style="font-size:0.75em;">訂金(50%) NT$ <span id="quoteDeposit"></span></span>
+      </div>
       <button onclick="copyQuote()">複製報價單內容</button>
-      <div id="copyMessage" class="hidden"></div>
+      <div id="copyMessage" class="hidden" aria-live="polite"></div>
       <textarea id="quoteTextArea" readonly></textarea>
     </div>
   </div>
@@ -296,22 +436,28 @@
       "十二人大包棟": "十二人大包棟(雙人房*2、四人房*2)"
     };
 
-    /* 春節期間 */
-    const springFestivalPeriods = [
+    /* 春節期間（fallback，API 載入後會覆寫） */
+    let springFestivalPeriods = [
       { start: new Date("2025-01-25"), end: new Date("2025-02-02") },
       { start: new Date("2026-02-14"), end: new Date("2026-02-22") },
-      { start: new Date("2027-02-04"), end: new Date("2027-02-10") }
+      { start: new Date("2027-02-04"), end: new Date("2027-02-10") },
+      { start: new Date("2028-01-22"), end: new Date("2028-02-01") },
+      { start: new Date("2029-02-09"), end: new Date("2029-02-18") },
+      { start: new Date("2030-01-30"), end: new Date("2030-02-08") }
     ];
 
-    /* 除夕至初三 */
-    const springFestivalEveToThirdDay = [
+    /* 除夕至初三（fallback，API 載入後會覆寫） */
+    let springFestivalEveToThirdDay = [
       { start: new Date("2025-01-28"), end: new Date("2025-01-31") },
       { start: new Date("2026-02-16"), end: new Date("2026-02-19") },
-      { start: new Date("2027-02-05"), end: new Date("2027-02-08") }
+      { start: new Date("2027-02-05"), end: new Date("2027-02-08") },
+      { start: new Date("2028-01-25"), end: new Date("2028-01-28") },
+      { start: new Date("2029-02-12"), end: new Date("2029-02-15") },
+      { start: new Date("2030-02-02"), end: new Date("2030-02-05") }
     ];
 
-    /* 國定假日 */
-    const nationalHolidays = [
+    /* 國定假日（fallback，API 載入後會覆寫） */
+    let nationalHolidays = [
       new Date("2025-01-01"),
       new Date("2025-02-28"), new Date("2025-03-01"), new Date("2025-03-02"),
       new Date("2025-04-03"), new Date("2025-04-04"), new Date("2025-04-05"), new Date("2025-04-06"),
@@ -336,9 +482,154 @@
       new Date("2027-06-09"),
       new Date("2027-09-15"), new Date("2027-09-28"),
       new Date("2027-10-09"), new Date("2027-10-10"), new Date("2027-10-24"),
-      new Date("2027-10-24"), new Date("2027-12-24"), new Date("2027-12-31"),
-      
+      new Date("2027-12-24"), new Date("2027-12-31"),
+      // 2028
+      new Date("2028-01-01"),
+      new Date("2028-01-25"), new Date("2028-01-26"), new Date("2028-01-27"), new Date("2028-01-28"), new Date("2028-01-29"), new Date("2028-01-30"),
+      new Date("2028-02-28"), new Date("2028-02-29"),
+      new Date("2028-04-04"), new Date("2028-04-05"), new Date("2028-04-06"),
+      new Date("2028-05-01"),
+      new Date("2028-06-14"), new Date("2028-06-15"),
+      new Date("2028-09-22"), new Date("2028-09-23"),
+      new Date("2028-10-10"), new Date("2028-10-11"),
+      new Date("2028-12-25"),
     ];
+
+    /* ── 人事行政局假日 API 串接 ─────────────────────────────── */
+    const HOLIDAY_CDN = 'https://cdn.jsdelivr.net/gh/ruyut/TaiwanCalendar/data/';
+    const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 天
+
+    function getCachedHolidays(year) {
+      try {
+        const raw = localStorage.getItem('tw-holidays-' + year);
+        if (!raw) return null;
+        const { ts, data } = JSON.parse(raw);
+        if (Date.now() - ts > CACHE_TTL_MS) { localStorage.removeItem('tw-holidays-' + year); return null; }
+        return data;
+      } catch { return null; }
+    }
+
+    function setCachedHolidays(year, data) {
+      try { localStorage.setItem('tw-holidays-' + year, JSON.stringify({ ts: Date.now(), data })); } catch {}
+    }
+
+    async function fetchHolidayYear(year) {
+      const cached = getCachedHolidays(year);
+      if (cached) return cached;
+      try {
+        const res = await fetch(HOLIDAY_CDN + year + '.json');
+        if (!res.ok) return null;
+        const data = await res.json();
+        setCachedHolidays(year, data);
+        return data;
+      } catch { return null; }
+    }
+
+    function parseDate8(str) {
+      // "20260216" → Date（UTC 午夜）
+      return new Date(str.slice(0, 4) + '-' + str.slice(4, 6) + '-' + str.slice(6, 8));
+    }
+
+    function parseHolidayData(allYearData) {
+      const holidays = [];
+      const springDays = [];  // dates with 春節/除夕/小年夜 description
+      const eveDates = [];    // dates with exactly 農曆除夕
+
+      allYearData.forEach(item => {
+        if (!item.isHoliday) return;
+        const d = parseDate8(item.date);
+        holidays.push(d);
+        const desc = item.description || '';
+        if (desc.includes('春節') || desc.includes('除夕') || desc === '小年夜') {
+          springDays.push(d);
+        }
+        if (desc === '農曆除夕') {
+          eveDates.push(d);
+        }
+      });
+
+      // 建立 springFestivalPeriods（每年的春節叢集 ±3天緩衝）
+      const periods = [];
+      if (springDays.length) {
+        const sorted = springDays.slice().sort((a, b) => a - b);
+        let clusterStart = sorted[0], clusterEnd = sorted[0];
+        for (let i = 1; i < sorted.length; i++) {
+          const diff = (sorted[i] - sorted[i - 1]) / 86400000;
+          if (diff <= 8) { // 同一叢集（最多間隔8天）
+            clusterEnd = sorted[i];
+          } else {
+            periods.push({
+              start: new Date(clusterStart.getTime() - 3 * 86400000),
+              end:   new Date(clusterEnd.getTime()   + 3 * 86400000)
+            });
+            clusterStart = sorted[i];
+            clusterEnd   = sorted[i];
+          }
+        }
+        periods.push({
+          start: new Date(clusterStart.getTime() - 3 * 86400000),
+          end:   new Date(clusterEnd.getTime()   + 3 * 86400000)
+        });
+      }
+
+      // 建立 springFestivalEveToThirdDay（除夕 ~ 初三 = 除夕+3天）
+      const eveToThird = eveDates.map(eve => ({
+        start: eve,
+        end:   new Date(eve.getTime() + 3 * 86400000)
+      }));
+
+      return { holidays, periods, eveToThird };
+    }
+
+    async function initHolidayData() {
+      const statusEl = document.getElementById('holidayLoadStatus');
+      const curYear = new Date().getFullYear();
+      const years = [curYear, curYear + 1, curYear + 2, curYear + 3];
+
+      const results = await Promise.allSettled(years.map(y => fetchHolidayYear(y)));
+
+      const allData = [];
+      let anySuccess = false;
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled' && r.value) {
+          allData.push(...r.value);
+          anySuccess = true;
+        }
+      });
+
+      if (anySuccess) {
+        const { holidays, periods, eveToThird } = parseHolidayData(allData);
+
+        // 僅覆寫 API 有資料的年份，保留 fallback 中 API 未覆蓋的年份
+        const apiYears = new Set(allData.map(item => parseInt(item.date.slice(0, 4))));
+
+        nationalHolidays = [
+          ...nationalHolidays.filter(d => !apiYears.has(d.getFullYear())),
+          ...holidays
+        ];
+        if (periods.length) {
+          springFestivalPeriods = [
+            ...springFestivalPeriods.filter(p => !apiYears.has(p.start.getFullYear())),
+            ...periods
+          ];
+        }
+        if (eveToThird.length) {
+          springFestivalEveToThirdDay = [
+            ...springFestivalEveToThirdDay.filter(p => !apiYears.has(p.start.getFullYear())),
+            ...eveToThird
+          ];
+        }
+        if (statusEl) statusEl.textContent = '';
+      } else {
+        if (statusEl) statusEl.textContent = '使用內建假日資料';
+      }
+
+      // 若已填入日期，重新計算
+      const checkIn = document.getElementById('checkInDate').value;
+      const checkOut = document.getElementById('checkOutDate').value;
+      if (checkIn && checkOut) updateDayTypeAndRooms();
+    }
+    /* ── end API 串接 ──────────────────────────────────────── */
 
     function isSpringFestival(date) {
       return springFestivalPeriods.some(period => 
@@ -410,15 +701,17 @@
       }
     }
 
-    function toggleSection(sectionId) {
-      const section = document.getElementById(sectionId);
-      const button = section.previousElementSibling.querySelector('.toggle-button');
+    function toggleSection(sectionId, btn) {
+      var section = document.getElementById(sectionId);
+      var button = btn || section.previousElementSibling.querySelector('.toggle-button');
       if (section.classList.contains('hidden')) {
         section.classList.remove('hidden');
-        button.textContent = '−';
+        button.textContent = '\u2212';
+        button.setAttribute('aria-expanded', 'true');
       } else {
         section.classList.add('hidden');
         button.textContent = '+';
+        button.setAttribute('aria-expanded', 'false');
       }
       updatePrice();
     }
@@ -496,7 +789,7 @@
         <option value="六人微包棟">六人微包棟(雙人房*1、四人房*1)</option>
         <option value="八人小包棟">八人小包棟(雙人房*2、四人房*1 或 四人房*2)</option>
         <option value="十人中包棟">十人中包棟(雙人房*1、四人房*2)</option>
-        <option value="十二人大包棟">十二人大包棟(雙人房*2、四人房*2)</option>
+        <option value="十二人大包棟">十二人大包棟(雙人房*2、四人房*2) ★ 最熱門</option>
       `;
       roomTypeSelect.value = currentRoomType && basePrices[currentRoomType] ? currentRoomType : "四人微包棟";
 
@@ -685,7 +978,7 @@
       const dayTypeMode = document.getElementById("dayTypeMode").value;
       const discountMode = document.getElementById("discountMode").value;
       const roomType = document.getElementById("roomType").value;
-      const addBreakfast = parseInt(document.getElementById("addBreakfast").value);
+      const addBed = parseInt(document.getElementById("addBed").value);
       const summerPeakAdjustmentMode = document.getElementById("summerPeakAdjustmentMode")?.value || "percentage";
       const springFestivalAdjustmentMode = document.getElementById("springFestivalAdjustmentMode")?.value || "percentage";
       const totalDiscount = parseFloat(document.getElementById("totalDiscount")?.value || 1.0);
@@ -723,7 +1016,7 @@
         applySpringFestivalAdjustmentAmount = springFestivalAdjustmentAmount > 0;
       }
 
-      if (!checkIn || !checkOut || checkOut <= checkIn || !roomType) return { total: 0, breakdown: [], addBreakfast: 0 };
+      if (!checkIn || !checkOut || checkOut <= checkIn || !roomType) return { total: 0, breakdown: [], addBed: 0 };
 
       let totalPrice = 0;
       let currentDate = new Date(checkIn);
@@ -808,12 +1101,14 @@
       }
 
       const numNights = calculateNights();
-      const breakfastCost = addBreakfast * 1000 * numNights;
-      const finalTotal = (totalPrice + breakfastCost) * totalDiscount;
-      return { 
-        total: finalTotal, 
-        breakdown: breakdown, 
-        addBreakfast: addBreakfast,
+      const bedCost = addBed * 1000 * numNights;
+      const cleaningFee = parseInt(document.getElementById("cleaningFee")?.value || 0);
+      const finalTotal = (totalPrice + bedCost) * totalDiscount + cleaningFee;
+      return {
+        total: finalTotal,
+        breakdown: breakdown,
+        addBed: addBed,
+        cleaningFee: cleaningFee,
         summerPeakAdjustment: summerPeakAdjustment,
         summerPeakAdjustmentAmount: summerPeakAdjustmentAmount,
         applySummerPeakAdjustmentAmount: applySummerPeakAdjustmentAmount,
@@ -835,113 +1130,121 @@
       return result.total;
     }
 
+    function showError(id, msg) {
+      var el = document.getElementById(id);
+      if (el) { el.textContent = msg; el.style.display = msg ? 'block' : 'none'; }
+    }
+    function clearErrors() {
+      ['checkInError','checkOutError','generateError'].forEach(function(id) { showError(id, ''); });
+    }
+    function toggleDlRow(dtId, ddId, show) {
+      var dt = document.getElementById(dtId);
+      var dd = document.getElementById(ddId);
+      if (dt) dt.classList.toggle('hidden', !show);
+      if (dd) dd.classList.toggle('hidden', !show);
+    }
+
     function generateQuote() {
-      const checkInDate = document.getElementById("checkInDate").value;
-      const checkOutDate = document.getElementById("checkOutDate").value;
-      const roomType = document.getElementById("roomType").value;
-      if (!checkInDate || !checkOutDate) {
-        alert("請選擇入住和退房日期！");
-        return;
+      clearErrors();
+      var checkInDate = document.getElementById("checkInDate").value;
+      var checkOutDate = document.getElementById("checkOutDate").value;
+      var roomType = document.getElementById("roomType").value;
+      var hasError = false;
+
+      if (!checkInDate) {
+        showError('checkInError', '請選擇入住日期'); hasError = true;
       }
-      if (new Date(checkOutDate) <= new Date(checkInDate)) {
-        alert("退房日期必須晚於入住日期！");
-        return;
+      if (!checkOutDate) {
+        showError('checkOutError', '請選擇退房日期'); hasError = true;
+      } else if (checkInDate && new Date(checkOutDate) <= new Date(checkInDate)) {
+        showError('checkOutError', '退房日期必須晚於入住日期'); hasError = true;
       }
       if (!roomType) {
-        alert("請選擇房型！");
-        return;
+        showError('generateError', '請選擇房型'); hasError = true;
       }
+      if (hasError) return;
 
-      const numNights = calculateNights();
-      const addBreakfast = parseInt(document.getElementById("addBreakfast").value);
-      const totalDiscount = parseFloat(document.getElementById("totalDiscount")?.value || 1.0);
-      const { total, breakdown, summerPeakAdjustment, summerPeakAdjustmentAmount, applySummerPeakAdjustmentAmount, springFestivalAdjustment, springFestivalAdjustmentAmount, applySpringFestivalAdjustmentAmount } = calculatePricePerNight();
+      var btn = document.getElementById("generateBtn");
+      btn.disabled = true; btn.textContent = "生成中...";
 
-      let dayTypeText = "";
-      breakdown.forEach(item => {
-        dayTypeText += `第${item.night}晚：${item.type}`;
-        if (item.night < numNights) dayTypeText += "，";
-      });
+      setTimeout(function() {
+        var numNights = calculateNights();
+        var addBed = parseInt(document.getElementById("addBed").value);
+        var totalDiscount = parseFloat(document.getElementById("totalDiscount")?.value || 1.0);
+        var result = calculatePricePerNight();
+        var total = result.total, breakdown = result.breakdown, cleaningFee = result.cleaningFee;
+        var summerPeakAdjustment = result.summerPeakAdjustment, summerPeakAdjustmentAmount = result.summerPeakAdjustmentAmount, applySummerPeakAdjustmentAmount = result.applySummerPeakAdjustmentAmount;
+        var springFestivalAdjustment = result.springFestivalAdjustment, springFestivalAdjustmentAmount = result.springFestivalAdjustmentAmount, applySpringFestivalAdjustmentAmount = result.applySpringFestivalAdjustmentAmount;
 
-      const totalDiscountText = totalDiscount === 1.0 ? "無折扣" : totalDiscount === 0.9 ? "9折" : totalDiscount === 0.8 ? "8折" : `${(totalDiscount * 100)}折`;
-      const summerPeakAdjustmentText = applySummerPeakAdjustmentAmount ? `NT$ ${summerPeakAdjustmentAmount.toLocaleString()} (加價金額)` : summerPeakAdjustment === 1.0 ? "無調漲" : `調漲${Math.round((summerPeakAdjustment - 1) * 100)}%`;
-      const springFestivalAdjustmentText = applySpringFestivalAdjustmentAmount ? `NT$ ${springFestivalAdjustmentAmount.toLocaleString()} (加價金額)` : springFestivalAdjustment === 1.0 ? "無調漲" : `調漲${Math.round((springFestivalAdjustment - 1) * 100)}%`;
+        var dayTypeText = "";
+        breakdown.forEach(function(item) {
+          dayTypeText += "\u7B2C" + item.night + "\u665A\uFF1A" + item.type;
+          if (item.night < numNights) dayTypeText += "\uFF0C";
+        });
 
-      document.getElementById("quoteCheckInDate").textContent = checkInDate || "未選擇";
-      document.getElementById("quoteCheckOutDate").textContent = checkOutDate || "未選擇";
-      document.getElementById("quoteDayType").textContent = dayTypeText;
-      document.getElementById("quoteRoomType").textContent = roomTypeDisplay[roomType] || roomType;
-      document.getElementById("quoteNumNights").textContent = numNights;
+        var totalDiscountText = totalDiscount === 1.0 ? "\u7121\u6298\u6263" : totalDiscount === 0.9 ? "9\u6298" : totalDiscount === 0.8 ? "8\u6298" : (totalDiscount * 100) + "\u6298";
+        var summerPeakAdjustmentText = applySummerPeakAdjustmentAmount ? "NT$ " + summerPeakAdjustmentAmount.toLocaleString() + " (\u52A0\u50F9\u91D1\u984D)" : summerPeakAdjustment === 1.0 ? "\u7121\u8ABF\u6F32" : "\u8ABF\u6F32" + Math.round((summerPeakAdjustment - 1) * 100) + "%";
+        var springFestivalAdjustmentText = applySpringFestivalAdjustmentAmount ? "NT$ " + springFestivalAdjustmentAmount.toLocaleString() + " (\u52A0\u50F9\u91D1\u984D)" : springFestivalAdjustment === 1.0 ? "\u7121\u8ABF\u6F32" : "\u8ABF\u6F32" + Math.round((springFestivalAdjustment - 1) * 100) + "%";
 
-      if (applySummerPeakAdjustmentAmount || summerPeakAdjustment !== 1.0) {
-        document.getElementById("quoteSummerPeakAdjustmentRow").classList.remove("hidden");
-        document.getElementById("quoteSummerPeakAdjustment").textContent = summerPeakAdjustmentText;
-      } else {
-        document.getElementById("quoteSummerPeakAdjustmentRow").classList.add("hidden");
-      }
+        document.getElementById("quoteCheckInDate").textContent = checkInDate || "\u672A\u9078\u64C7";
+        document.getElementById("quoteCheckOutDate").textContent = checkOutDate || "\u672A\u9078\u64C7";
+        document.getElementById("quoteDayType").textContent = dayTypeText;
+        document.getElementById("quoteRoomType").textContent = roomTypeDisplay[roomType] || roomType;
+        document.getElementById("quoteNumNights").textContent = numNights;
 
-      if (applySpringFestivalAdjustmentAmount || springFestivalAdjustment !== 1.0) {
-        document.getElementById("quoteSpringFestivalAdjustmentRow").classList.remove("hidden");
-        document.getElementById("quoteSpringFestivalAdjustment").textContent = springFestivalAdjustmentText;
-      } else {
-        document.getElementById("quoteSpringFestivalAdjustmentRow").classList.add("hidden");
-      }
+        var showSummer = applySummerPeakAdjustmentAmount || summerPeakAdjustment !== 1.0;
+        toggleDlRow("quoteSummerPeakAdjustmentRow", "quoteSummerPeakAdjustmentVal", showSummer);
+        if (showSummer) document.getElementById("quoteSummerPeakAdjustment").textContent = summerPeakAdjustmentText;
 
-      let breakdownHtml = "<p><strong>每晚價格明細：</strong></p><ul>";
-      breakdown.forEach(item => {
-        let discountText = "";
-        if (item.useIntegerMode) {
-          discountText = item.integerPrice > 0 ? `(優惠價)` : "";
-        } else {
-          let discountDisplay;
-          if (item.discount === 0.9) {
-            discountDisplay = "9折價";
-          } else if (item.discount === 0.8) {
-            discountDisplay = "8折價";
-          } else if (item.discount === 0.7) {
-            discountDisplay = "7折價";
-          } else if (item.discount === 0.65) {
-            discountDisplay = "65折價";
-          } else if (item.discount === 0.55) {
-            discountDisplay = "55折價";
-          } else if (item.discount === 0.5) {
-            discountDisplay = "5折";
-          } else if (item.discount === 1.0) {
-            discountDisplay = "";
+        var showSpring = applySpringFestivalAdjustmentAmount || springFestivalAdjustment !== 1.0;
+        toggleDlRow("quoteSpringFestivalAdjustmentRow", "quoteSpringFestivalAdjustmentVal", showSpring);
+        if (showSpring) document.getElementById("quoteSpringFestivalAdjustment").textContent = springFestivalAdjustmentText;
+
+        var breakdownHtml = "<p><strong>\u6BCF\u665A\u50F9\u683C\u660E\u7D30\uFF1A</strong></p><ul>";
+        breakdown.forEach(function(item) {
+          var discountText = "";
+          if (item.useIntegerMode) {
+            discountText = item.integerPrice > 0 ? "(\u512A\u60E0\u50F9)" : "";
           } else {
-            discountDisplay = `${(item.discount * 100)}折價`;
+            var dd = item.discount;
+            var discountDisplay = dd === 1.0 ? "" : dd === 0.9 ? "9\u6298\u50F9" : dd === 0.8 ? "8\u6298\u50F9" : dd === 0.7 ? "7\u6298\u50F9" : dd === 0.65 ? "65\u6298\u50F9" : dd === 0.55 ? "55\u6298\u50F9" : dd === 0.5 ? "5\u6298" : (dd * 100) + "\u6298\u50F9";
+            discountText = discountDisplay ? "(" + discountDisplay + ")" : "";
           }
-          discountText = discountDisplay ? `(${discountDisplay})` : "";
-        }
-        breakdownHtml += `<li>第${item.night}晚 ${item.date} (${item.type.match(/^(.*?)\(/)[1]})：NT$ ${Math.round(item.price).toLocaleString()} ${discountText}</li>`;
-      });
-      breakdownHtml += "</ul>";
-      document.getElementById("nightlyBreakdown").innerHTML = breakdownHtml;
+          breakdownHtml += "<li>\u7B2C" + item.night + "\u665A " + item.date + " (" + item.type.match(/^(.*?)\(/)[1] + ")\uFF1ANT$ " + Math.round(item.price).toLocaleString() + " " + discountText + "</li>";
+        });
+        breakdownHtml += "</ul>";
+        document.getElementById("nightlyBreakdown").innerHTML = breakdownHtml;
 
-      if (addBreakfast > 0) {
-        document.getElementById("quoteAddBreakfastRow").classList.remove("hidden");
-        document.getElementById("quoteAddBreakfast").textContent = `${(addBreakfast * 1000 * numNights).toLocaleString()}（加床數：${addBreakfast} 床）`;
-      } else {
-        document.getElementById("quoteAddBreakfastRow").classList.add("hidden");
-      }
+        toggleDlRow("quoteAddBedRow", "quoteAddBedVal", addBed > 0);
+        if (addBed > 0) document.getElementById("quoteAddBed").textContent = (addBed * 1000 * numNights).toLocaleString() + "\uFF08\u52A0\u5E8A\u6578\uFF1A" + addBed + " \u5E8A\uFF09";
 
-      if (!document.getElementById("totalDiscountSection").classList.contains("hidden") && totalDiscount !== 1.0) {
-        document.getElementById("quoteTotalDiscountRow").classList.remove("hidden");
-        document.getElementById("quoteTotalDiscount").textContent = totalDiscountText;
-      } else {
-        document.getElementById("quoteTotalDiscountRow").classList.add("hidden");
-      }
+        toggleDlRow("quoteCleaningFeeRow", "quoteCleaningFeeVal", cleaningFee > 0);
+        if (cleaningFee > 0) document.getElementById("quoteCleaningFee").textContent = cleaningFee.toLocaleString();
 
-      document.getElementById("quoteTotal").textContent = Math.round(total).toLocaleString();
-      document.getElementById("quoteDeposit").textContent = Math.round(total * 0.5).toLocaleString();
+        var showDiscount = !document.getElementById("totalDiscountSection").classList.contains("hidden") && totalDiscount !== 1.0;
+        toggleDlRow("quoteTotalDiscountRow", "quoteTotalDiscountVal", showDiscount);
+        if (showDiscount) document.getElementById("quoteTotalDiscount").textContent = totalDiscountText;
 
-      document.getElementById("quoteResult").classList.remove("hidden");
-      document.getElementById("copyMessage").classList.add("hidden");
-      document.getElementById("quoteTextArea").style.display = "none";
+        document.getElementById("quoteTotal").textContent = Math.round(total).toLocaleString();
+        document.getElementById("quoteDeposit").textContent = Math.round(total * 0.5).toLocaleString();
+
+        document.getElementById("quoteResult").classList.remove("hidden");
+        document.getElementById("copyMessage").classList.add("hidden");
+        document.getElementById("quoteTextArea").style.display = "none";
+
+        // Scroll & highlight
+        var totalBox = document.getElementById("quoteTotalBox");
+        totalBox.classList.remove("highlight-flash");
+        void totalBox.offsetWidth;
+        totalBox.classList.add("highlight-flash");
+        document.getElementById("quoteResult").scrollIntoView({ behavior: "smooth", block: "start" });
+
+        btn.disabled = false; btn.textContent = "\u751F\u6210\u5831\u50F9\u55AE";
+      }, 50);
     }
 
     function copyQuote() {
-      const addBreakfast = parseInt(document.getElementById("addBreakfast").value);
+      const addBed = parseInt(document.getElementById("addBed").value);
       let quoteText = `
 
 入住日期：${document.getElementById("quoteCheckInDate").textContent}
@@ -961,8 +1264,11 @@
       quoteText += `\n\n每晚價格明細：`;
       quoteText += `\n${Array.from(document.querySelectorAll("#nightlyBreakdown ul li")).map(item => "• " + item.textContent).join("\n")}`;
 
-      if (addBreakfast > 0) {
-        quoteText += `\n加床費用：NT$ ${document.getElementById("quoteAddBreakfast").textContent}`;
+      if (addBed > 0) {
+        quoteText += `\n加床費用：NT$ ${document.getElementById("quoteAddBed").textContent}`;
+      }
+      if (!document.getElementById("quoteCleaningFeeRow").classList.contains("hidden")) {
+        quoteText += `\n清潔費：NT$ ${document.getElementById("quoteCleaningFee").textContent}`;
       }
       if (!document.getElementById("quoteTotalDiscountRow").classList.contains("hidden")) {
         quoteText += `\n總價折扣：${document.getElementById("quoteTotalDiscount").textContent}`;
@@ -978,14 +1284,14 @@
           copyMessage.style.color = "green";
           copyMessage.classList.remove("hidden");
           textArea.style.display = "none";
-          setTimeout(() => copyMessage.classList.add("hidden"), 2000);
+          setTimeout(() => copyMessage.classList.add("hidden"), 4000);
         }).catch(err => {
           textArea.value = quoteText;
           textArea.style.display = "block";
           copyMessage.textContent = "複製失敗，請從下方選取並手動複製！（建議使用最新版本的 Chrome、Firefox 或 Safari）";
           copyMessage.style.color = "red";
           copyMessage.classList.remove("hidden");
-          setTimeout(() => copyMessage.classList.add("hidden"), 3000);
+          setTimeout(() => copyMessage.classList.add("hidden"), 4000);
         });
       } else {
         textArea.value = quoteText;
@@ -993,7 +1299,7 @@
         copyMessage.textContent = "您的瀏覽器不支援自動複製，請從下方選取並手動複製！（建議使用最新版本的 Chrome、Firefox 或 Safari）";
         copyMessage.style.color = "red";
         copyMessage.classList.remove("hidden");
-        setTimeout(() => copyMessage.classList.add("hidden"), 3000);
+        setTimeout(() => copyMessage.classList.add("hidden"), 4000);
       }
     }
 
@@ -1010,6 +1316,9 @@
       if (checkInInput.value) {
         updateCheckOutDate();
       }
+
+      // 串接人事行政局假日資料
+      initHolidayData();
     });
   </script>
 </body>
